@@ -18,7 +18,7 @@ const nice = (s, opts = { day: 'numeric', month: 'short' }) => parse(s).toLocale
 const isDate = s => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
 
 // ---------- Opslag ----------
-const leeg = () => ({ startDate: null, schedule: null, days: {}, weights: {}, lastBackup: null });
+const leeg = () => ({ startDate: null, schedule: null, days: {}, weights: {}, metingen: {}, lastBackup: null });
 
 function load() {
   try { return { ...leeg(), ...JSON.parse(localStorage.getItem(KEY)) }; }
@@ -31,28 +31,34 @@ function save() {
   // Leg het schema vast voor de dagen die nog af te vinken zijn, zodat
   // een latere schemawijziging oude dagen niet achteraf verandert.
   const t = todayStr();
-  for (const d of [t, addDays(t, -1)]) if (state.days[d]) state.days[d].plan = schedulePlan(d);
+  for (const d of [t, addDays(t, -1)]) if (state.days[d]) state.days[d].plan = weekPlan(d);
   try { localStorage.setItem(KEY, JSON.stringify(state)); }
   catch { alert('Opslaan is mislukt. Maak een back-up via Instellingen.'); }
 }
 
 // ---------- Challenge-logica ----------
-const schedule = () => state.schedule || WEEKSCHEMA;
-const schedulePlan = d => ({ ...schedule()[weekday(d)] });
-const isRest = plan => plan.training === 'Rustdag';
-const tasksFor = plan => TAKEN.filter(t => !(t.id === 'kracht' && isRest(plan)));
+const GYMVRIJ = { Hersteldag: 'herstel', Rustdag: 'rest' }; // naam → css-klasse
+const TRAININGEN = [...ROUTINES.map(r => r.naam), ...Object.keys(GYMVRIJ)];
+// Een training die niet (meer) bestaat, zoals 'Push' uit een oud schema, valt terug op het standaardschema.
+const schedule = () => (state.schedule || WEEKSCHEMA).map((p, i) => TRAININGEN.includes(p.training) ? p : WEEKSCHEMA[i]);
+const weekPlan = d => ({ ...schedule()[weekday(d)] });
+const gymvrij = plan => GYMVRIJ[plan.training]; // 'herstel', 'rest' of undefined
+const routine = plan => ROUTINES.find(r => r.naam === plan.training);
+const tasksFor = plan => TAKEN.filter(t => t.id === 'kracht' ? !gymvrij(plan) : t.id !== 'fysio' || gymvrij(plan));
+const verplicht = plan => tasksFor(plan).filter(t => t.id !== 'fysio');
 const taskDone = (rec, t) => t.id === 'water' ? rec.water >= GLAZEN : !!rec.checks?.[t.id];
 const day = d => (state.days[d] ||= { checks: {}, water: 0, note: '' });
 
 // Vandaag en gisteren volgen het huidige schema, oudere dagen hun vastgelegde schema.
+// Uitzonderingen uit data.js gaan altijd voor en worden daarom niet vastgelegd.
 function planFor(d, today = todayStr()) {
   const rec = state.days[d];
-  return rec && rec.plan && d < addDays(today, -1) ? rec.plan : schedulePlan(d);
+  return { ...(rec?.plan && d < addDays(today, -1) ? rec.plan : weekPlan(d)), ...UITZONDERINGEN[d] };
 }
 
 function isComplete(d, today = todayStr()) {
   const rec = state.days[d];
-  return !!rec && tasksFor(planFor(d, today)).every(t => taskDone(rec, t));
+  return !!rec && verplicht(planFor(d, today)).every(t => taskDone(rec, t));
 }
 
 function calc(today = todayStr()) {
@@ -123,24 +129,29 @@ function renderToday() {
 
   if (c.finished && d > c.end) { el.innerHTML = finished + seg; return; }
 
-  const plan = schedulePlan(d);
-  const rest = isRest(plan);
+  const plan = planFor(d, c.today);
+  const vrij = gymvrij(plan);
+  const hevy = routine(plan);
   const rec = state.days[d] || { checks: {}, water: 0, note: '' };
   const tasks = tasksFor(plan);
-  const n = tasks.filter(t => taskDone(rec, t)).length;
+  const nodig = verplicht(plan);
+  const n = nodig.filter(t => taskDone(rec, t)).length;
   const info = t => ({ kracht: `${plan.training} · ${t.info}`, buiten: plan.buiten || t.info, voeding: VOEDINGSDOEL }[t.id] ?? t.info);
 
   el.innerHTML = `
     ${finished}${head}${seg}
-    <div class="card plan${rest ? ' rest' : ''}">
+    <div class="card plan ${vrij || ''}">
       <span class="tag">${welkeDag ? 'Training gisteren' : 'Training vandaag'}</span>
-      <h2>${rest ? 'Rustdag' : esc(plan.training)}</h2>
+      <h2>${esc(plan.training)}</h2>
       <p>${esc(plan.buiten)}</p>
+      ${hevy ? `<a class="btn primary" href="${esc(hevy.link)}" target="_blank" rel="noopener">Open in Hevy</a>` : ''}
     </div>
-    ${rest ? '<div class="banner rest">Rustdag: één vrije maaltijd. De overige regels blijven gelden.</div>' : ''}
-    ${n === tasks.length ? '<div class="banner done">Dag voltooid. Goed bezig!</div>' : ''}
-    <div class="progress-label"><span>${n} van ${tasks.length} gedaan</span></div>
-    <div class="progress"><i style="width:${(n / tasks.length) * 100}%"></i></div>
+    ${plan.notitie ? `<div class="banner">${esc(plan.notitie)}</div>` : ''}
+    ${vrij === 'rest' ? '<div class="banner rest">Rustdag: één vrije maaltijd. De overige regels blijven gelden.</div>' : ''}
+    ${vrij === 'herstel' ? '<div class="banner herstel">Hersteldag: geen gym, wel even bewegen buiten.</div>' : ''}
+    ${n === nodig.length ? '<div class="banner done">Dag voltooid. Goed bezig!</div>' : ''}
+    <div class="progress-label"><span>${n} van ${nodig.length} gedaan</span></div>
+    <div class="progress"><i style="width:${(n / nodig.length) * 100}%"></i></div>
     <div class="tasks">
       ${tasks.map(t => t.id === 'water' ? `
         <div class="task water">
@@ -169,7 +180,7 @@ function renderProgress() {
   const cells = DAGEN.map(n => `<span class="wd">${n.slice(0, 2)}</span>`);
   for (let i = 0; i < weekday(c.start); i++) cells.push('<span></span>');
   for (let d = c.start, n = 1; d <= c.end; d = addDays(d, 1), n++) {
-    const cls = [c.status[d] || 'future', isRest(planFor(d, c.today)) && 'rest', d === c.today && 'today'].filter(Boolean).join(' ');
+    const cls = [c.status[d] || 'future', gymvrij(planFor(d, c.today)), d === c.today && 'today'].filter(Boolean).join(' ');
     cells.push(`<span class="cell ${cls}" title="${nice(d, LANG)}">${n}</span>`);
   }
   const weeks = Math.ceil(c.total / 7);
@@ -185,7 +196,7 @@ function renderProgress() {
     <div class="card">
       <div class="grid">${cells.join('')}</div>
       <div class="legend">
-        <span><i class="done"></i>Voltooid</span><span><i class="restdone"></i>Rustdag</span>
+        <span><i class="done"></i>Voltooid</span><span><i class="restdone"></i>Rustdag</span><span><i class="hersteldone"></i>Hersteldag</span>
         <span><i class="missed"></i>Gemist</span><span><i class="open"></i>Nog open</span><span><i class="future"></i>Toekomst</span>
       </div>
     </div>
@@ -195,8 +206,36 @@ function renderProgress() {
       ${Array.from({ length: weeks }, (_, i) => `
         <label class="wrow"><span>Week ${i + 1} <small>${nice(addDays(c.start, i * 7))}</small></span>
           <input type="text" inputmode="decimal" data-week="${i + 1}" value="${state.weights[i + 1] != null ? kg(state.weights[i + 1]) : ''}" placeholder="kg"></label>`).join('')}
+    </div>
+    <h2 class="section">Lichaamsmetingen</h2>
+    <div class="banner">Meet 's ochtends, nuchter, op dag 5-10 van je cyclus.</div>
+    ${METINGEN.map((m, i) => `
+      <div class="card">
+        <label class="field">${esc(m.naam)} <input type="date" data-meting-datum="${i}" value="${meting(i).datum || m.datum}"></label>
+        ${MATEN.map(([k, naam, eenheid]) => `
+          <label class="wrow"><span>${naam} <small>${eenheid}</small></span>
+            <input type="text" inputmode="decimal" data-meting="${i}" data-maat="${k}" value="${meting(i)[k] != null ? kg(meting(i)[k]) : ''}" placeholder="${eenheid}"></label>`).join('')}
+      </div>`).join('')}
+    <div class="card">
+      <p class="muted small">Verschil tussen de start en de laatst ingevulde meting</p>
+      <div id="verschil">${verschilHtml()}</div>
     </div>`;
 }
+
+const MATEN = [['gewicht', 'Gewicht', 'kg'], ['taille', 'Taille', 'cm'], ['heupen', 'Heupen', 'cm'], ['bovenbeen', 'Bovenbeen', 'cm'], ['bovenarm', 'Bovenarm', 'cm']];
+const meting = i => state.metingen[i] || {};
+
+// Verschil per maat tussen de startmeting en de laatste latere meting waarin die maat is ingevuld.
+function verschil(maat) {
+  const start = meting(0)[maat];
+  const laatste = METINGEN.map((_, i) => meting(i)[maat]).slice(1).reverse().find(v => v != null);
+  return start == null || laatste == null ? null : Math.round((laatste - start) * 10) / 10;
+}
+
+const verschilHtml = () => MATEN.map(([k, naam, eenheid]) => {
+  const v = verschil(k);
+  return `<div class="wrow"><span>${naam}</span><b>${v == null ? '–' : `${v > 0 ? '+' : ''}${kg(v)} ${eenheid}`}</b></div>`;
+}).join('');
 
 function chart(weeks) {
   const pts = Object.entries(state.weights).map(([w, v]) => [Number(w), v]).filter(([w]) => w <= weeks).sort((a, b) => a[0] - b[0]);
@@ -247,7 +286,7 @@ function renderSettings() {
     </div>
     <h2 class="section">Weekschema</h2>
     <div class="card">
-      <p class="muted small">Kies per dag de krachttraining en de buitenworkout. Kies 'Rustdag' voor je rustdag.</p>
+      <p class="muted small">Kies per dag de Hevy-routine en de buitenworkout. 'Hersteldag': geen gym. 'Rustdag': geen gym en één vrije maaltijd.</p>
       ${DAGEN.map((n, i) => `
         <div class="srow">
           <span class="dname">${n}</span>
@@ -346,12 +385,17 @@ function init() {
     if (e.target.id === 'note') { day(huidigeDag()).note = e.target.value; save(); }
   });
 
+  // Getal invullen of, bij een lege/ongeldige waarde, weghalen.
+  const zet = (obj, k, s) => {
+    const v = parseFloat(s.replace(',', '.'));
+    if (v > 0 && v < 500) obj[k] = Math.round(v * 10) / 10; else delete obj[k];
+  };
   $('#voortgang').addEventListener('change', e => {
-    const w = e.target.dataset.week;
-    if (!w) return;
-    const v = parseFloat(e.target.value.replace(',', '.'));
-    if (v > 0 && v < 500) state.weights[w] = Math.round(v * 10) / 10; else delete state.weights[w];
-    save(); render();
+    const t = e.target, { week, meting: i, maat, metingDatum } = t.dataset;
+    if (week) { zet(state.weights, week, t.value); save(); render(); }
+    // Metingen: niet alles opnieuw tekenen, anders sluit het toetsenbord bij het volgende veld.
+    if (maat) { zet(state.metingen[i] ||= {}, maat, t.value); save(); $('#verschil').innerHTML = verschilHtml(); }
+    if (metingDatum && isDate(t.value)) { (state.metingen[metingDatum] ||= {}).datum = t.value; save(); }
   });
 
   const inst = $('#instellingen');

@@ -5,7 +5,8 @@
 // ============================================================
 
 // Dagelijkse checklist. De id's niet veranderen (de app gebruikt ze),
-// titel en info wel.
+// titel en info wel. 'kracht' staat alleen op gymdagen, 'fysio' alleen
+// op rust- en hersteldagen en telt niet mee voor het voltooien van de dag.
 const TAKEN = [
   { id: 'kracht',     titel: 'Krachttraining binnen', info: 'Max 45 min' },
   { id: 'buiten',     titel: 'Buitenworkout 45 min',  info: '' },
@@ -15,23 +16,51 @@ const TAKEN = [
   { id: 'mediteren',  titel: '10 minuten mediteren',  info: 'Headspace' },
   { id: 'opstaan',    titel: 'Op tijd opgestaan',     info: '' },
   { id: 'schermvrij', titel: 'Schermvrij',            info: 'Eerste en laatste halfuur van de dag geen telefoon' },
+  { id: 'fysio',      titel: 'Fysio-oefeningen knie', info: 'Optioneel, telt niet mee' },
 ];
 
-// Keuzes voor krachttraining. 'Rustdag' betekent: geen krachttraining
-// en één vrije maaltijd.
-const TRAININGEN = ['Push', 'Pull', 'Lower', 'Rustdag'];
+// Hevy-routines voor de krachttraining. Naam en link mag je aanpassen.
+// Naast deze routines kun je in het schema kiezen uit:
+//   'Hersteldag': geen gym, geen vrije maaltijd
+//   'Rustdag':    geen gym, wel één vrije maaltijd
+const ROUTINES = [
+  { naam: 'Upper body Pull', link: 'https://hevy.com/routine/pNIynymFe4A' },
+  { naam: 'Upper body Push', link: 'https://hevy.com/routine/sJ6g5LZFk7S' },
+  { naam: 'Lower C - VKB Fysio 🙃', link: 'https://hevy.com/routine/jwCF8i850uh' },
+  { naam: 'Lower B - Hamstrings/ SL', link: 'https://hevy.com/routine/aqW5HfBlWIn' },
+  { naam: 'Lower A - Quad/ Balans', link: 'https://hevy.com/routine/zafbGRlAw00' },
+];
 
 // Standaard weekschema, maandag t/m zondag.
 // Let op: zodra je het schema in de app (Instellingen) aanpast,
 // gebruikt de app dat schema en niet meer dit standaardschema.
+const BUITEN = '45 min wandelen of fietsen';
 const WEEKSCHEMA = [
-  { training: 'Push',    buiten: 'Stevig wandelen' },      // maandag
-  { training: 'Pull',    buiten: 'Wandelen of fietsen' },  // dinsdag
-  { training: 'Lower',   buiten: 'Rustig wandelen' },      // woensdag
-  { training: 'Push',    buiten: 'Stevig wandelen' },      // donderdag
-  { training: 'Pull',    buiten: 'Wandelen of fietsen' },  // vrijdag
-  { training: 'Lower',   buiten: 'Rustig wandelen' },      // zaterdag
-  { training: 'Rustdag', buiten: 'Ontspannen wandeling' }, // zondag
+  // Nooit twee beendagen achter elkaar; zwaarste beendag (Lower A) na de rustdag.
+  { training: ROUTINES[4].naam, buiten: BUITEN }, // maandag:   Lower A - Quad/ Balans
+  { training: ROUTINES[0].naam, buiten: BUITEN }, // dinsdag:   Upper body Pull
+  { training: ROUTINES[3].naam, buiten: BUITEN }, // woensdag:  Lower B - Hamstrings/ SL
+  { training: 'Hersteldag',     buiten: BUITEN }, // donderdag: herstel na 2 beendagen
+  { training: ROUTINES[1].naam, buiten: BUITEN }, // vrijdag:   Upper body Push
+  { training: ROUTINES[2].naam, buiten: BUITEN }, // zaterdag:  Lower C - VKB Fysio
+  { training: 'Rustdag',        buiten: BUITEN }, // zondag
+];
+
+// Uitzonderingen voor specifieke datums. Gaan voor het weekschema.
+// Alle velden zijn optioneel:
+//   training: naam van een routine, 'Hersteldag' of 'Rustdag'
+//   buiten:   tekst voor de buitenworkout
+//   notitie:  wordt als melding getoond op die dag
+const UITZONDERINGEN = {
+  '2026-12-31': { training: 'Rustdag', notitie: 'Oudjaarsdag: vrije maaltijd en alcohol toegestaan.' },
+  '2027-01-03': { training: 'Hersteldag' },
+};
+
+// Lichaamsmetingen op het Voortgang-scherm. De datums zijn in de app aan te passen.
+const METINGEN = [
+  { naam: 'Start',       datum: '2026-11-21' },
+  { naam: 'Halverwege',  datum: '2026-12-19' },
+  { naam: 'Eind',        datum: '2027-01-16' },
 ];
 
 // Alleen als geheugensteun, geen calorie-tracker.

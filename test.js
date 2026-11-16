@@ -41,10 +41,43 @@ assert.strictEqual(c.status['2026-11-09'], 'open');   // maandag zonder kracht
 
 // Schema later wijzigen verandert oude dagen niet (zondag 8 nov blijft rustdag).
 run(`state.days[todayStr()] = { checks: {}, water: 0 }; save();`);
-assert.strictEqual(run(`state.days[todayStr()].plan.training`), run(`schedulePlan(todayStr()).training`));
+assert.strictEqual(run(`state.days[todayStr()].plan.training`), run(`weekPlan(todayStr()).training`));
 run(`state.days['2026-11-08'].plan = { training: 'Rustdag', buiten: 'x' }`);
-run(`state.schedule = WEEKSCHEMA.map(p => ({ ...p })); state.schedule[6].training = 'Push'; state.schedule[2].training = 'Rustdag';`);
+run(`state.schedule = WEEKSCHEMA.map(p => ({ ...p })); state.schedule[6].training = ROUTINES[0].naam; state.schedule[2].training = 'Rustdag';`);
 assert.strictEqual(calc('2026-11-10').status['2026-11-08'], 'done');
+
+// Hersteldag (donderdag 5 nov): geen kracht nodig, fysio is optioneel.
+reset('2026-11-01');
+fill('2026-11-05', '2026-11-05', `{ checks: { buiten: true, voeding: true, lezen: true, mediteren: true, opstaan: true, schermvrij: true }, water: 8 }`);
+assert.strictEqual(calc('2026-11-10').status['2026-11-05'], 'done');
+assert.ok(run(`tasksFor(planFor('2026-11-05')).some(t => t.id === 'fysio')`));
+assert.ok(!run(`tasksFor(planFor('2026-11-04')).some(t => t.id === 'fysio')`));   // gymdag: geen fysio
+assert.strictEqual(run(`routine(planFor('2026-11-04')).link`), 'https://hevy.com/routine/aqW5HfBlWIn');   // woensdag: Lower B
+
+// Buitenworkout blijft op elke dag verplicht, ook op rust- en hersteldagen.
+for (const d of ['2026-11-05', '2026-11-08']) assert.ok(run(`verplicht(planFor('${d}')).some(t => t.id === 'buiten')`));
+
+// Oud schema met 'Push' valt per dag terug op het standaardschema; oude vastgelegde dagen blijven werken.
+run(`state.schedule = WEEKSCHEMA.map(p => ({ ...p })); state.schedule[0].training = 'Push';`);
+assert.strictEqual(run(`schedule()[0].training`), run(`WEEKSCHEMA[0].training`));
+run(`state.schedule = null; state.days['2026-11-03'] = { checks: ${allChecks.replace('kracht: true, ', '')}, water: 8, plan: { training: 'Rustdag', buiten: '' } }`);
+assert.strictEqual(calc('2026-11-10').status['2026-11-03'], 'done');
+
+// Uitzonderingen gaan voor het weekschema, ook voor een vastgelegd plan.
+assert.deepStrictEqual([...run(`[planFor('2026-12-31').training, gymvrij(planFor('2027-01-03'))]`)], ['Rustdag', 'herstel']);
+assert.match(run(`planFor('2026-12-31').notitie`), /Oudjaarsdag/);
+assert.strictEqual(run(`planFor('2026-12-31').buiten`), run(`BUITEN`));
+run(`UITZONDERINGEN['2026-11-03'] = { training: 'Hersteldag' }`);
+assert.strictEqual(run(`planFor('2026-11-03', '2026-11-10').training`), 'Hersteldag');
+// ...maar worden niet vastgelegd, zodat aanpassen of weghalen in data.js gewoon werkt.
+run(`UITZONDERINGEN[todayStr()] = { training: 'Rustdag', notitie: 'x' }; state.days[todayStr()] = { checks: {}, water: 0 }; save();`);
+assert.strictEqual(run(`state.days[todayStr()].plan.notitie`), undefined);
+assert.strictEqual(run(`planFor(todayStr()).training`), 'Rustdag');
+run(`delete UITZONDERINGEN[todayStr()]; delete UITZONDERINGEN['2026-11-03'];`);
+
+// Lichaamsmetingen: verschil tussen start en laatst ingevulde meting, per maat.
+run(`state.metingen = { 0: { gewicht: 80, taille: 90, heupen: 100 }, 1: { gewicht: 78.4, taille: 88 }, 2: { gewicht: 77.1 } }`);
+assert.deepStrictEqual([...run(`MATEN.map(([k]) => verschil(k))`)], [-2.9, -2, null, null, null]);
 
 // 45 dagen gehaald: challenge klaar, einddatum = dag van de 45e voltooide dag.
 reset('2026-09-01');

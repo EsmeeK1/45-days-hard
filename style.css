@@ -10,6 +10,7 @@
   --done: #2b8a3e;
   --missed: #c92a2a;
   --rest: #1971c2;
+  --herstel: #0c8599;
   --open: #e67700;
   --water: #1c7ed6;
   --on-color: #ffffff;
@@ -28,6 +29,7 @@
     --done: #51cf66;
     --missed: #ff6b6b;
     --rest: #4dabf7;
+    --herstel: #3bc9db;
     --open: #fcc419;
     --water: #4dabf7;
     --on-color: #111111;
@@ -99,6 +101,7 @@ li { margin: 2px 0; }
 }
 .banner.done { background: var(--done); color: var(--on-color); }
 .banner.rest { background: var(--rest); color: var(--on-color); }
+.banner.herstel { box-shadow: inset 5px 0 0 var(--herstel); }
 
 /* ---------- Vandaag ---------- */
 .seg {
@@ -123,6 +126,7 @@ li { margin: 2px 0; }
 
 .plan { border-left: 6px solid var(--accent); }
 .plan.rest { border-left-color: var(--rest); }
+.plan.herstel { border-left-color: var(--herstel); }
 .plan h2 { font-size: 26px; line-height: 1.2; }
 .plan p { margin: 2px 0 0; color: var(--muted); }
 .tag { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
@@ -232,6 +236,7 @@ textarea { resize: vertical; font-weight: 400; }
   color: var(--text);
   font: inherit;
   font-weight: 600;
+  text-decoration: none;
   cursor: pointer;
 }
 .btn.primary { background: var(--accent); color: var(--on-color); }
@@ -269,15 +274,18 @@ textarea { resize: vertical; font-weight: 400; }
 }
 .cell.done { background: var(--done); color: var(--on-color); }
 .cell.done.rest { background: var(--rest); }
+.cell.done.herstel { background: var(--herstel); }
 .cell.missed { background: var(--missed); color: var(--on-color); }
 .cell.open { background: transparent; box-shadow: inset 0 0 0 2px var(--open); color: var(--text); }
 .cell.future.rest { box-shadow: inset 0 0 0 2px var(--rest); }
+.cell.future.herstel { box-shadow: inset 0 0 0 2px var(--herstel); }
 .cell.today { outline: 2px solid var(--text); outline-offset: 2px; }
 
 .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 14px; font-size: 13px; color: var(--muted); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 4px; margin-right: 5px; vertical-align: -1px; }
 .legend .done { background: var(--done); }
 .legend .restdone { background: var(--rest); }
+.legend .hersteldone { background: var(--herstel); }
 .legend .missed { background: var(--missed); }
 .legend .open { box-shadow: inset 0 0 0 2px var(--open); }
 .legend .future { background: var(--soft); }
