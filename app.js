@@ -216,7 +216,7 @@ function chart(weeks) {
 
 function recipe(r) {
   const meta = [
-    r.porties && (typeof r.porties === 'number' ? `${r.porties} ${r.porties === 1 ? 'portie' : 'porties'}` : r.porties),
+    r.porties,
     r.houdbaarheid && `Houdbaar: ${r.houdbaarheid}`,
   ].filter(Boolean);
   return `

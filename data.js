@@ -9,7 +9,7 @@
 const TAKEN = [
   { id: 'kracht',     titel: 'Krachttraining binnen', info: 'Max 45 min' },
   { id: 'buiten',     titel: 'Buitenworkout 45 min',  info: '' },
-  { id: 'water',      titel: '2 liter water',         info: '8 glazen van 250 ml' },
+  { id: 'water',      titel: '2 liter water' },
   { id: 'voeding',    titel: 'Voedingsafspraken nageleefd', info: '' },
   { id: 'lezen',      titel: "10 pagina's lezen",     info: '' },
   { id: 'mediteren',  titel: '10 minuten mediteren',  info: 'Headspace' },
@@ -39,7 +39,7 @@ const VOEDINGSDOEL = 'Ongeveer 1800-1900 kcal en 115-130 g eiwit per dag';
 
 // Recepten per sectie. Alle velden behalve 'naam' zijn optioneel:
 //   naam:         'Naam van het recept'
-//   porties:      2
+//   porties:      '2 porties'
 //   ingredienten: ['200 g kipfilet', '1 ui']
 //   bereiding:    ['Stap 1', 'Stap 2']
 //   houdbaarheid: '3 dagen in de koelkast'
@@ -89,7 +89,7 @@ const RECEPTEN = [
       // Voorbeeld (haal de // weg en vul in):
       // {
       //   naam: 'Kip met groenten uit de oven',
-      //   porties: 4,
+      //   porties: '4 porties',
       //   ingredienten: ['600 g kipfilet', '2 paprika', '1 courgette'],
       //   bereiding: ['Oven op 200 °C.', 'Alles snijden en 25 min bakken.'],
       //   houdbaarheid: '3 dagen in de koelkast',
